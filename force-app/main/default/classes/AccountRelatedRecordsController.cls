@@ -3,12 +3,16 @@
  *              Retrieves related Contacts and Opportunities for a given Account
  *              with server-side offset pagination, inline editing, and delete.
  * 
+ * @author      Abhinandan Singh
+ * @since       2026-02-24
+ * 
  * INTERVIEW TALKING POINTS:
  * - Server-side OFFSET/LIMIT pagination for efficient data loading
  * - NOT cacheable — imperative calls from LWC for pagination control
  * - Separate count methods return total records for UI badges
  * - Using List<SObject> for updates to handle any object generically
  * - SOQL ORDER BY ensures consistent pagination (no skipped/duplicate rows)
+ * - String.escapeSingleQuotes() used in search to prevent SOQL injection
  */
 public with sharing class AccountRelatedRecordsController {
 
