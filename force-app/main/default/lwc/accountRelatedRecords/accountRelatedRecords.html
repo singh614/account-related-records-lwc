@@ -1,0 +1,245 @@
+<template>
+    <!-- 
+        INTERVIEW TALKING POINTS (Template):
+        - Using lightning-datatable for virtual scrolling with 300+ records
+        - Inline editing via draft-values and onsave handler
+        - Tab-based UI to separate Contacts & Opportunities
+        - lightning-spinner for loading states during async operations
+        - Conditional rendering with lwc:if for performance
+    -->
+
+    <!-- Loading Overlay -->
+    <template lwc:if={isLoading}>
+        <lightning-spinner alternative-text="Loading" size="medium" class="spinner-overlay"></lightning-spinner>
+    </template>
+
+    <!-- Saving Overlay -->
+    <template lwc:if={isSaving}>
+        <div class="saving-overlay">
+            <lightning-spinner alternative-text="Saving" size="medium"></lightning-spinner>
+            <p class="saving-text">Saving changes...</p>
+        </div>
+    </template>
+
+    <div class="component-container">
+        
+        <!-- Header Section -->
+        <div class="header-section">
+            <div class="header-top">
+                <div class="header-title-area">
+                    <lightning-icon icon-name="standard:account" size="medium" class="header-icon"></lightning-icon>
+                    <div class="header-text">
+                        <h1 class="account-name">{accountName}</h1>
+                        <p class="account-subtitle">Related Records Overview</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <lightning-button-icon 
+                        icon-name="utility:refresh" 
+                        alternative-text="Refresh" 
+                        title="Refresh Data"
+                        variant="border-filled"
+                        onclick={handleRefresh}
+                        class="refresh-btn">
+                    </lightning-button-icon>
+                </div>
+            </div>
+
+            <!-- Account Quick Info Pills -->
+            <div class="account-info-pills">
+                <div class="info-pill">
+                    <lightning-icon icon-name="utility:company" size="xx-small"></lightning-icon>
+                    <span>{accountIndustry}</span>
+                </div>
+                <div class="info-pill">
+                    <lightning-icon icon-name="utility:call" size="xx-small"></lightning-icon>
+                    <span>{accountPhone}</span>
+                </div>
+                <div class="info-pill">
+                    <lightning-icon icon-name="utility:world" size="xx-small"></lightning-icon>
+                    <span>{accountWebsite}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card contacts-card">
+                <div class="card-icon-wrapper contacts-icon">
+                    <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
+                </div>
+                <div class="card-content">
+                    <span class="card-count">{totalContactCount}</span>
+                    <span class="card-label">Contacts</span>
+                </div>
+            </div>
+            <div class="summary-card opportunities-card">
+                <div class="card-icon-wrapper opportunities-icon">
+                    <lightning-icon icon-name="standard:opportunity" size="small"></lightning-icon>
+                </div>
+                <div class="card-content">
+                    <span class="card-count">{totalOpportunityCount}</span>
+                    <span class="card-label">Opportunities</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class={contactTabClass} data-tab="contacts" onclick={handleTabClick}>
+                <lightning-icon icon-name="standard:contact" size="xx-small" class="tab-icon"></lightning-icon>
+                <span class="tab-label">Contacts</span>
+                <span class="tab-badge">{contactBadge}</span>
+            </button>
+            <button class={opportunityTabClass} data-tab="opportunities" onclick={handleTabClick}>
+                <lightning-icon icon-name="standard:opportunity" size="xx-small" class="tab-icon"></lightning-icon>
+                <span class="tab-label">Opportunities</span>
+                <span class="tab-badge">{opportunityBadge}</span>
+            </button>
+        </div>
+
+        <!-- ===== CONTACTS TAB ===== -->
+        <template lwc:if={isContactsTab}>
+            <div class="tab-content">
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <lightning-input 
+                        type="search" 
+                        label="Search Contacts" 
+                        variant="label-hidden" 
+                        placeholder="Search by name, email, phone, title, or department..."
+                        value={contactSearchTerm}
+                        onchange={handleContactSearch}
+                        class="search-input">
+                    </lightning-input>
+                    <span class="result-count">
+                        Showing {contactCount} of {totalContactCount} contacts
+                    </span>
+                </div>
+
+                <!-- Error State -->
+                <template lwc:if={hasContactError}>
+                    <div class="error-banner">
+                        <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                        <span>{contactErrorMessage}</span>
+                    </div>
+                </template>
+
+                <!-- Data Table -->
+                <template lwc:if={hasContacts}>
+                    <div class="datatable-wrapper">
+                        <lightning-datatable
+                            key-field="Id"
+                            data={displayedContacts}
+                            columns={contactColumns}
+                            draft-values={contactDraftValues}
+                            onsave={handleContactSave}
+                            oncancel={handleContactCancel}
+                            onsort={handleContactSort}
+                            sorted-by={contactSortBy}
+                            sorted-direction={contactSortDirection}
+                            onrowaction={handleContactRowAction}
+                            onloadmore={handleContactLoadMore}
+                            enable-infinite-loading={contactInfiniteLoadingEnabled}
+                            hide-checkbox-column
+                            show-row-number-column
+                            class="styled-datatable">
+                        </lightning-datatable>
+                    </div>
+                </template>
+
+                <!-- Empty State (no contacts and no error) -->
+                <template lwc:elseif={showContactEmptyState}>
+                    <div class="empty-state">
+                        <lightning-icon icon-name="standard:contact" size="large" class="empty-icon"></lightning-icon>
+                        <h3 class="empty-title">No Contacts Found</h3>
+                        <p class="empty-message">
+                            <template lwc:if={contactSearchTerm}>
+                                No contacts match your search. Try a different term.
+                            </template>
+                            <template lwc:else>
+                                This account has no related contacts yet.
+                            </template>
+                        </p>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- ===== OPPORTUNITIES TAB ===== -->
+        <template lwc:if={isOpportunitiesTab}>
+            <div class="tab-content">
+                <!-- Search Bar -->
+                <div class="search-bar">
+                    <lightning-input 
+                        type="search" 
+                        label="Search Opportunities" 
+                        variant="label-hidden" 
+                        placeholder="Search by name, stage, or type..."
+                        value={opportunitySearchTerm}
+                        onchange={handleOpportunitySearch}
+                        class="search-input">
+                    </lightning-input>
+                    <span class="result-count">
+                        Showing {opportunityCount} of {totalOpportunityCount} opportunities
+                    </span>
+                </div>
+
+                <!-- Error State -->
+                <template lwc:if={hasOpportunityError}>
+                    <div class="error-banner">
+                        <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
+                        <span>{opportunityErrorMessage}</span>
+                    </div>
+                </template>
+
+                <!-- Data Table -->
+                <template lwc:if={hasOpportunities}>
+                    <div class="datatable-wrapper">
+                        <lightning-datatable
+                            key-field="Id"
+                            data={displayedOpportunities}
+                            columns={opportunityColumns}
+                            draft-values={opportunityDraftValues}
+                            onsave={handleOpportunitySave}
+                            oncancel={handleOpportunityCancel}
+                            onsort={handleOpportunitySort}
+                            sorted-by={opportunitySortBy}
+                            sorted-direction={opportunitySortDirection}
+                            onrowaction={handleOpportunityRowAction}
+                            onloadmore={handleOpportunityLoadMore}
+                            enable-infinite-loading={opportunityInfiniteLoadingEnabled}
+                            hide-checkbox-column
+                            show-row-number-column
+                            class="styled-datatable">
+                        </lightning-datatable>
+                    </div>
+                </template>
+
+                <!-- Empty State (no opportunities and no error) -->
+                <template lwc:elseif={showOpportunityEmptyState}>
+                    <div class="empty-state">
+                        <lightning-icon icon-name="standard:opportunity" size="large" class="empty-icon"></lightning-icon>
+                        <h3 class="empty-title">No Opportunities Found</h3>
+                        <p class="empty-message">
+                            <template lwc:if={opportunitySearchTerm}>
+                                No opportunities match your search. Try a different term.
+                            </template>
+                            <template lwc:else>
+                                This account has no related opportunities yet.
+                            </template>
+                        </p>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Footer -->
+        <div class="component-footer">
+            <p class="footer-note">
+                <lightning-icon icon-name="utility:info" size="xx-small" class="footer-icon"></lightning-icon>
+                Click on any editable cell to edit inline. Press Enter or click Save to apply changes.
+            </p>
+        </div>
+    </div>
+</template>

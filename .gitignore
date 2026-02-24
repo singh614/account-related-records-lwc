@@ -1,0 +1,29 @@
+# Salesforce DX
+.sfdx/
+.sf/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node
+node_modules/
+
+# Scratch org auth
+authFile.json
+
+# Gemini / AI agent
+.gemini/
+.agent/
+.agents/
