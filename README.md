@@ -1,18 +1,156 @@
-# Salesforce DX Project: Next Steps
+# Account Related Records — Lightning Web Component
 
-Now that you’ve created a Salesforce DX project, what’s next? Here are some documentation resources to get you started.
+A production-grade Salesforce LWC that displays related **Contacts** and **Opportunities** for an Account record, featuring server-side pagination, server-side search, inline editing, row actions, and Lightning Data Service (LDS) integration.
 
-## How Do You Plan to Deploy Your Changes?
+---
 
-Do you want to deploy a set of changes, or create a self-contained application? Choose a [development model](https://developer.salesforce.com/tools/vscode/en/user-guide/development-models).
+## ✨ Features
 
-## Configure Your Salesforce DX Project
+| Feature                    | Description                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| **Server-Side Pagination** | SOQL `OFFSET`/`LIMIT` — loads 50 records at a time as you scroll                       |
+| **Infinite Loading**       | `lightning-datatable` with `enable-infinite-loading` and fixed-height scroll container |
+| **Server-Side Search**     | Apex LIKE query across multiple fields with 300ms debounce                             |
+| **Inline Editing**         | Edit fields directly in the datatable, save with LDS `updateRecord`                    |
+| **Row Actions**            | View Record (NavigationMixin) and Delete (LDS `deleteRecord`)                          |
+| **Clickable Names**        | Record names are URL links that navigate to the record page                            |
+| **LDS Integration**        | `getRecord`, `updateRecord`, `deleteRecord`, `notifyRecordUpdateAvailable`             |
+| **Account Info Header**    | Displays Account Name, Industry, Phone, Website via LDS `getRecord`                    |
+| **Summary Cards**          | Shows total Contact and Opportunity counts                                             |
+| **Tabbed Interface**       | Switch between Contacts and Opportunities tabs                                         |
+| **Client-Side Sorting**    | Sort any column ascending/descending                                                   |
+| **Error Handling**         | Toast notifications for success, error, and delete operations                          |
+| **Responsive Design**      | Mobile-friendly layout with grid-based summary cards                                   |
 
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
+---
 
-## Read All About It
+## 🏗️ Architecture
 
-- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference.htm)
+### LDS vs Custom Apex — When to Use What
+
+```
+┌──────────────────────┬───────────────────────────────────────────────┐
+│ LDS (uiRecordApi)    │ Single-record CRUD:                           │
+│                      │ • getRecord — Account info (cached, reactive) │
+│                      │ • updateRecord — inline edit save             │
+│                      │ • deleteRecord — row action delete            │
+│                      │ • notifyRecordUpdateAvailable                 │
+├──────────────────────┼───────────────────────────────────────────────┤
+│ Custom Apex          │ Complex queries LDS can't do:                 │
+│                      │ • OFFSET/LIMIT pagination                    │
+│                      │ • Server-side LIKE search                    │
+│                      │ • COUNT() aggregations                       │
+└──────────────────────┴───────────────────────────────────────────────┘
+```
+
+### Infinite Loading — How It Works
+
+`lightning-datatable`'s `loadmore` event requires a **fixed-height container** with internal scrolling. Without it, the table expands to fit all rows, no scrollbar appears, and `loadmore` fires in a rapid loop loading everything at once.
+
+```css
+.datatable-wrapper {
+    height: 400px; /* Fixed height = scroll container */
+    overflow: auto; /* Internal scrollbar */
+}
+```
+
+### Search — Server-Side with Debounce
+
+```
+User types → 300ms debounce → Apex LIKE query → ALL matching records returned
+User clears → Paginated view restored with infinite loading re-enabled
+```
+
+---
+
+## 📁 Project Structure
+
+```
+force-app/main/default/
+├── classes/
+│   ├── AccountRelatedRecordsController.cls          # Apex controller
+│   ├── AccountRelatedRecordsController.cls-meta.xml
+│   ├── AccountRelatedRecordsControllerTest.cls      # Test class (13 methods)
+│   └── AccountRelatedRecordsControllerTest.cls-meta.xml
+└── lwc/
+    └── accountRelatedRecords/
+        ├── accountRelatedRecords.js                  # JS controller
+        ├── accountRelatedRecords.html                # Template
+        ├── accountRelatedRecords.css                 # Styles
+        └── accountRelatedRecords.js-meta.xml         # Metadata
+
+scripts/
+└── createTestData.apex    # Anonymous Apex: creates 500 Contacts + 500 Opportunities
+```
+
+---
+
+## 🚀 Deployment
+
+### Prerequisites
+
+- Salesforce CLI (`sfdx`)
+- An authenticated org
+
+### Deploy
+
+```bash
+sfdx force:source:deploy -p force-app/main/default/classes/AccountRelatedRecordsController.cls,force-app/main/default/classes/AccountRelatedRecordsControllerTest.cls,force-app/main/default/lwc/accountRelatedRecords -u <your-org-alias>
+```
+
+### Generate Test Data (Optional)
+
+```bash
+sfdx force:apex:execute -f scripts/createTestData.apex -u <your-org-alias>
+```
+
+Creates 1 Account (`Publicis Demo Account __ARR_TEST_2026__`) + 500 Contacts + 500 Opportunities.
+
+### Cleanup Test Data
+
+```apex
+Account acc = [SELECT Id FROM Account WHERE Name LIKE '%__ARR_TEST_2026__%' LIMIT 1];
+delete acc;  // Cascade-deletes all child records
+```
+
+### Add Component to Page
+
+1. Navigate to any Account record page
+2. Click ⚙️ → **Edit Page** (Lightning App Builder)
+3. Drag **Account Related Records** onto the page
+4. Save and activate
+
+---
+
+## 🧪 Apex Controller Methods
+
+| Method                                                    | Type | Purpose                                                         |
+| --------------------------------------------------------- | ---- | --------------------------------------------------------------- |
+| `getRelatedContacts(accountId, pageSize, offsetVal)`      | Apex | Paginated Contact fetch                                         |
+| `getRelatedOpportunities(accountId, pageSize, offsetVal)` | Apex | Paginated Opportunity fetch                                     |
+| `getContactCount(accountId)`                              | Apex | Total Contact count for badge                                   |
+| `getOpportunityCount(accountId)`                          | Apex | Total Opportunity count for badge                               |
+| `searchContacts(accountId, searchTerm)`                   | Apex | SOQL LIKE search across Name, Email, Phone, Title, Department   |
+| `searchOpportunities(accountId, searchTerm)`              | Apex | SOQL LIKE search across Name, StageName, Type                   |
+| `updateRecords(records)`                                  | Apex | Bulk SObject update (kept for backward compatibility)           |
+| `getAccountInfo(accountId)`                               | Apex | Account details (superseded by LDS `getRecord` in LWC)          |
+| `deleteRecord(recordId)`                                  | Apex | Generic record delete (superseded by LDS `deleteRecord` in LWC) |
+
+---
+
+## 🔑 Key Design Decisions
+
+1. **LDS for single-record CRUD** — automatic caching, FLS enforcement, cross-component sync
+2. **Apex for complex queries** — pagination, search, aggregation (LDS can't do these)
+3. **Schema imports** (`@salesforce/schema`) — compile-time field validation, survives field renames
+4. **Server-side search** — queries ALL records in DB, not just loaded ones
+5. **Fixed-height datatable** — required for `enable-infinite-loading` to work correctly
+6. **Debounced search** — 300ms delay prevents excessive Apex calls while typing
+7. **`with sharing`** — enforces record-level security in Apex
+8. **`String.escapeSingleQuotes`** — prevents SOQL injection in search
+
+---
+
+## 📄 License
+
+MIT
