@@ -3,7 +3,10 @@ name: Salesforce CI - Main Branch
 on:
     push:
         branches:
-            - main
+            - main # Deploy after merge
+    pull_request:
+        branches:
+            - main # Validate BEFORE merge (gate)
 
 jobs:
     deploy-and-test:
