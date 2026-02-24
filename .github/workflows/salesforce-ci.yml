@@ -1,0 +1,39 @@
+name: Salesforce CI - Main Branch
+
+on:
+  push:
+    branches:
+      - main   # runs only when commit is pushed to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        run: |
+          npm install --global @salesforce/cli
+
+      - name: Create JWT Key File
+        run: |
+          echo "${{ secrets.SF_JWT_KEY }}" | tr -d '\r' > server.key
+
+      - name: Authenticate to Salesforce
+        run: |
+          sf org login jwt \
+            --client-id ${{ secrets.SF_CLIENT_ID }} \
+            --jwt-key-file server.key \
+            --username ${{ secrets.SF_USERNAME }} \
+            --instance-url ${{ secrets.SF_LOGIN_URL }} \
+            --alias ci-org
+
+      - name: Deploy Source and Run All Tests
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --test-level RunAllTestsInOrg \
+            --target-org ci-org \
+            --wait 30
