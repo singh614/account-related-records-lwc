@@ -13,6 +13,7 @@
  * - Using List<SObject> for updates to handle any object generically
  * - SOQL ORDER BY ensures consistent pagination (no skipped/duplicate rows)
  * - String.escapeSingleQuotes() used in search to prevent SOQL injection
+ * - 'with sharing' enforces record-level security (respects sharing rules)
  */
 public with sharing class AccountRelatedRecordsController {
 
