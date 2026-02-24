@@ -1,39 +1,112 @@
 name: Salesforce CI - Main Branch
 
 on:
-  push:
-    branches:
-      - main   # runs only when commit is pushed to main
+    push:
+        branches:
+            - main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+    deploy-and-test:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
 
-      - name: Install Salesforce CLI
-        run: |
-          npm install --global @salesforce/cli
+            - name: Install Salesforce CLI
+              run: npm install --global @salesforce/cli
 
-      - name: Create JWT Key File
-        run: |
-          echo "${{ secrets.SF_JWT_KEY }}" | tr -d '\r' > server.key
+            - name: Create JWT Key File
+              run: echo "${{ secrets.SF_JWT_KEY }}" | tr -d '\r' > server.key
 
-      - name: Authenticate to Salesforce
-        run: |
-          sf org login jwt \
-            --client-id ${{ secrets.SF_CLIENT_ID }} \
-            --jwt-key-file server.key \
-            --username ${{ secrets.SF_USERNAME }} \
-            --instance-url ${{ secrets.SF_LOGIN_URL }} \
-            --alias ci-org
+            - name: Authenticate to Salesforce
+              run: |
+                  sf org login jwt \
+                    --client-id ${{ secrets.SF_CLIENT_ID }} \
+                    --jwt-key-file server.key \
+                    --username ${{ secrets.SF_USERNAME }} \
+                    --instance-url ${{ secrets.SF_LOGIN_URL }} \
+                    --alias ci-org
 
-      - name: Deploy Source and Run All Tests
-        run: |
-          sf project deploy start \
-            --source-dir force-app \
-            --test-level RunAllTestsInOrg \
-            --target-org ci-org \
-            --wait 30
+            # Step 1: Deploy source WITHOUT tests (fast — just pushes metadata)
+            - name: Deploy Source to Org
+              run: |
+                  sf project deploy start \
+                    --source-dir force-app \
+                    --test-level NoTestRun \
+                    --target-org ci-org \
+                    --wait 30
+
+            # Step 2: Run all tests separately (gives clear, detailed output)
+            - name: Run All Tests in Org
+              id: run-tests
+              run: |
+                  sf apex run test \
+                    --test-level RunAllTestsInOrg \
+                    --target-org ci-org \
+                    --result-format human \
+                    --output-dir test-results \
+                    --wait 30
+
+            # Step 3: If tests fail, show detailed failure report
+            - name: Show Test Failure Details
+              if: failure() && steps.run-tests.outcome == 'failure'
+              run: |
+                  echo "============================================"
+                  echo "❌  TEST FAILURES — DETAILED REPORT"
+                  echo "============================================"
+                  echo ""
+
+                  # Parse the JSON results for detailed error info
+                  if [ -f test-results/test-result-*.json ]; then
+                    node -e "
+                      const fs = require('fs');
+                      const files = fs.readdirSync('test-results').filter(f => f.endsWith('.json'));
+                      if (files.length === 0) { console.log('No JSON result files found.'); process.exit(0); }
+                      const data = JSON.parse(fs.readFileSync('test-results/' + files[0], 'utf8'));
+
+                      const summary = data.summary || {};
+                      console.log('📊 Summary:');
+                      console.log('   Total:   ' + (summary.testsRan || 0));
+                      console.log('   Passing: ' + (summary.passing || 0));
+                      console.log('   Failing: ' + (summary.failing || 0));
+                      console.log('');
+
+                      const tests = data.tests || [];
+                      const failing = tests.filter(t => t.Outcome === 'Fail');
+
+                      if (failing.length > 0) {
+                        console.log('❌ FAILING TESTS:');
+                        console.log('─'.repeat(60));
+                        failing.forEach((t, i) => {
+                          console.log('');
+                          console.log((i+1) + '. ' + (t.FullName || t.MethodName || 'Unknown'));
+                          console.log('   Message:    ' + (t.Message || 'N/A'));
+                          if (t.StackTrace) {
+                            console.log('   Stack Trace: ' + t.StackTrace.split('\\n')[0]);
+                          }
+                          console.log('   Runtime:    ' + (t.RunTime || 0) + 'ms');
+                        });
+                        console.log('');
+                        console.log('─'.repeat(60));
+                        console.log('Total failures: ' + failing.length);
+                      }
+                    "
+                  else
+                    echo "No JSON test results found. Showing raw output:"
+                    cat test-results/* 2>/dev/null || echo "No test result files available."
+                  fi
+
+            # Step 4: Upload test results as artifact for download
+            - name: Upload Test Results
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: apex-test-results
+                  path: test-results/
+                  retention-days: 7
+
+            # Step 5: Cleanup
+            - name: Cleanup Key File
+              if: always()
+              run: rm -f server.key
