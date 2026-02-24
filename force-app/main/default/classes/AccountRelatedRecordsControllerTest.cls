@@ -1,7 +1,15 @@
 /**
- * @description Test class for AccountRelatedRecordsController
- *              Covers: getRelatedContacts, getRelatedOpportunities, 
- *              updateRecords, and getAccountInfo methods.
+ * @description Test class for AccountRelatedRecordsController.
+ *              Covers all Apex methods:
+ *              - getRelatedContacts / getRelatedOpportunities (pagination)
+ *              - getContactCount / getOpportunityCount (aggregation)
+ *              - searchContacts / searchOpportunities (server-side search)
+ *              - updateRecords (bulk SObject update)
+ *              - deleteRecord (generic record deletion)
+ *              - getAccountInfo (Account details)
+ * 
+ * @author      Abhinandan Singh
+ * @since       2026-02-24
  */
 @isTest
 private class AccountRelatedRecordsControllerTest {
