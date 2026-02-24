@@ -47,8 +47,8 @@ import searchOpportunities from "@salesforce/apex/AccountRelatedRecordsControlle
  */
 
 // --- Constants ---
-const PAGE_SIZE = 50;
-const SEARCH_DEBOUNCE_MS = 300;
+const PAGE_SIZE = 50; // Records per page for OFFSET pagination
+const SEARCH_DEBOUNCE_MS = 300; // Delay (ms) before firing server-side search
 
 const ACCOUNT_FIELDS = [
     ACCOUNT_NAME_FIELD,
