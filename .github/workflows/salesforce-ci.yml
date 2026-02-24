@@ -1,4 +1,4 @@
-name: Salesforce CI - Main Branch
+name: Code Analysis
 
 on:
     push:
