@@ -44,7 +44,7 @@ public with sharing class AccountRelatedRecordsController {
      * @param accountId The Id of the parent Account record
      * @param pageSize  Number of records to return per page
      * @param offset    Number of records to skip (for pagination)
-     * @return List of Opportunity records for the requested page
+     * @return List of Opportunity records for the requested page 
      */
     @AuraEnabled
     public static List<Opportunity> getRelatedOpportunities(Id accountId, Integer pageSize, Integer offsetVal) {
